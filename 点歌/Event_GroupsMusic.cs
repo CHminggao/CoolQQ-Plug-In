@@ -7,36 +7,70 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
-
+using System.Text;
+using System.Threading.Tasks;
 
 namespace Native.Csharp.App.Event
 {
-    public class Event_GroupMessage : IReceiveGroupMessage
+    public class Event_GroupsMusic : IReceiveGroupMessage
     {
         public void ReceiveGroupMessage(object sender, CqGroupMessageEventArgs e)
         {
             if (e.Message.Contains("网易云点歌"))
             {
-                if(e.Message.IndexOf("网易云点歌")==0)
+                if (e.Message.IndexOf("网易云点歌") == 0)
                 {
                     var msgs = e.Message.Substring(5).ToString();
-                    ToSongsWY(msgs,e);
+                    ToSongsWY(msgs, e);
                 }
             }
-            else
+            else if(e.Message.Contains("点歌"))
             {
-                
+
                 string msg = e.Message;
                 if (!msg.Contains("点歌"))
                     return;
                 if (msg.Substring(0, 2).ToString() != "点歌")
                     return;
                 var msgs = msg.Substring(2).ToString();
-                ToSongsQQ(msgs,e);
+                ToSongsQQ(msgs, e);
+            }
+            if (e.Message.Contains("一首") && e.Message.Contains("送给")) //未某人点歌
+            {
+                try
+                {
+                    var songs = e.Message.Substring(2, e.Message.IndexOf("送给") -2);
+                    var per = e.Message.Substring(e.Message.IndexOf("送给") + 2);
+                    if (per == "我" || per == "自己")
+                    {
+
+
+                        ToSomeoneSongsQQ(songs, e.FromQQ, e);
+                    }
+                    else if(per=="你们")
+                    {
+                        ToSomeoneSongsQQ(songs, -1, e);
+                    }
+                    else if(per!=null)
+                    {
+                        if(per.Substring(0,10)=="[CQ:at,qq=")
+                        {
+                            ToSomeoneSongsQQ(songs, 0, e,per);
+                        }
+                        else
+                        {
+
+                        }
+                    }
+
+                }
+                catch (Exception)
+                {
+                    return;
+                    throw;
+                }
             }
 
-
-            //throw new NotImplementedException();
         }
 
         #region  网易云音乐点歌 
@@ -68,7 +102,7 @@ namespace Native.Csharp.App.Event
                         return;
                     }
 
-                    var music = Common.CqApi.CqCode_Music(musi.songid,"163");
+                    var music = Common.CqApi.CqCode_Music(musi.songid, "163");
                     seeid = Common.CqApi.SendGroupMessage(e.FromGroup, music);
 
 
@@ -76,7 +110,7 @@ namespace Native.Csharp.App.Event
                 else
                 {
                     var list = GetWYSearch(msgs);
-                    if (list ==null)
+                    if (list == null)
                     {
                         Common.CqApi.SendGroupMessage(e.FromGroup, Common.CqApi.CqCode_At(e.FromQQ) + "未搜索到歌曲");
                         return;
@@ -228,12 +262,12 @@ namespace Native.Csharp.App.Event
             foreach (var l in list)
             {
                 Musices mu = new Musices();
-                mu.songid = Convert.ToInt64 (l["songid"].ToString());
+                mu.songid = Convert.ToInt64(l["songid"].ToString());
 
                 var singer = l["singer"];
                 foreach (var s in singer)
                 {
-                    if(mu .singers== "")
+                    if (mu.singers == "")
                         mu.singers = s["name"].ToString();
                     else
                         mu.singers += "," + s["name"].ToString();
@@ -243,8 +277,49 @@ namespace Native.Csharp.App.Event
             #endregion
 
             return musices;
-           // return $"https://i.y.qq.com/v8/playsong.html?songmid={list[0]}";
+            // return $"https://i.y.qq.com/v8/playsong.html?songmid={list[0]}";
         }
+
+        /// <summary>
+        /// 为某人点歌
+        /// </summary>
+        /// <param name="msgs"></param>
+        /// <param name="e"></param>
+        private void ToSomeoneSongsQQ(string msgs,long atQQ, CqGroupMessageEventArgs e,string qqcode="")
+        {
+            try
+            {
+                
+                int seeid = -1;
+
+                var list = GetUrlAllSearch(msgs);
+                if (list == null)
+                {
+                    Common.CqApi.SendGroupMessage(e.FromGroup, Common.CqApi.CqCode_At(e.FromQQ) + "未搜索到歌曲");
+                    return;
+                }
+
+                var music = Common.CqApi.CqCode_Music(list[0].songid);
+                seeid = Common.CqApi.SendGroupMessage(e.FromGroup, music);
+                if (seeid < 0)
+                    Common.CqApi.SendGroupMessage(e.FromGroup, Common.CqApi.CqCode_At(e.FromQQ) + "歌曲发送失败");
+                else
+                {
+                    if(qqcode=="")
+                        Common.CqApi.SendGroupMessage(e.FromGroup, Common.CqApi.CqCode_At(atQQ));
+                    else
+                        Common.CqApi.SendGroupMessage(e.FromGroup, qqcode);
+                }
+            }
+            catch (Exception ex)
+            {
+                return;
+                throw ex;
+            }
+        }
+
+
+
         #endregion
     }
     public class Musices
@@ -252,4 +327,5 @@ namespace Native.Csharp.App.Event
         public long songid;
         public string singers;
     }
+
 }
