@@ -47,19 +47,41 @@ namespace Native.Csharp.App.Event
 
                         ToSomeoneSongsQQ(songs, e.FromQQ, e);
                     }
-                    else if(per=="你们")
+                    else if(per=="你们"||per=="大家")
                     {
                         ToSomeoneSongsQQ(songs, -1, e);
                     }
                     else if(per!=null)
                     {
-                        if(per.Substring(0,10)=="[CQ:at,qq=")
+                        if(per.Length>10&& per.Substring(0,10)=="[CQ:at,qq=")
                         {
                             ToSomeoneSongsQQ(songs, 0, e,per);
                         }
                         else
                         {
-
+                            var perLi = Common.CqApi.GetMemberList(e.FromGroup);
+                            //var sone = perLi.Where(a => a.Card.Contains(per)).FirstOrDefault();
+                            var sone = perLi.Where(a => a.Card == per).FirstOrDefault() == null ? 
+                                perLi.Where(b => b.Nick == per).FirstOrDefault():
+                                perLi.Where(a => a.Card == per).FirstOrDefault();
+                            if (sone == null)
+                            {
+                                sone = perLi.Where(a => a.Card.Contains(per)).FirstOrDefault() == null ?
+                                    perLi.Where(b => b.Nick.Contains(per)).FirstOrDefault():
+                                    perLi.Where(a => a.Card.Contains(per)).FirstOrDefault();
+                                if (sone == null)
+                                {
+                                    ToSongsQQ(songs, e);
+                                    Common.CqApi.SendGroupMessage(e.FromGroup,  "没有找到："+per);
+                                    
+                                }
+                                else
+                                {
+                                    ToSomeoneSongsQQ(songs,sone.QQId,e);
+                                }
+                            }
+                            else
+                                ToSomeoneSongsQQ(songs,sone.QQId,e);
                         }
                     }
 
@@ -124,6 +146,7 @@ namespace Native.Csharp.App.Event
             }
             catch (Exception ex)
             {
+                Common.CqApi.SendGroupMessage(e.FromGroup, "未搜索到歌曲");
                 return;
                 throw ex;
             }
@@ -220,6 +243,7 @@ namespace Native.Csharp.App.Event
             }
             catch (Exception ex)
             {
+                Common.CqApi.SendGroupMessage(e.FromGroup, "未搜索到歌曲");
                 return;
                 throw ex;
             }
@@ -313,6 +337,7 @@ namespace Native.Csharp.App.Event
             }
             catch (Exception ex)
             {
+                Common.CqApi.SendGroupMessage(e.FromGroup, Common.CqApi.CqCode_At(e.FromQQ) + "未搜索到歌曲");
                 return;
                 throw ex;
             }
